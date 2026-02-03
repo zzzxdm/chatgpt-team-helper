@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { authService, gptAccountService, type GptAccount, type CreateGptAccountDto, type SyncUserCountResponse, type GptAccountsListParams, type ChatgptAccountInviteItem } from '@/services/api'
+import { authService, gptAccountService, type GptAccount, type CreateGptAccountDto, type SyncUserCountResponse, type GptAccountsListParams, type ChatgptAccountInviteItem, type ChatgptAccountCheckInfo } from '@/services/api'
 import { formatShanghaiDate } from '@/lib/datetime'
 import { useAppConfigStore } from '@/stores/appConfig'
 import {
@@ -113,6 +113,10 @@ const formData = ref<CreateGptAccountDto>({
   expireAt: ''
 })
 
+const checkingAccessToken = ref(false)
+const checkedChatgptAccounts = ref<ChatgptAccountCheckInfo[]>([])
+const checkAccessTokenError = ref('')
+
 // 转换存储格式 (YYYY/MM/DD HH:mm:ss) 为 datetime-local 格式 (YYYY-MM-DDTHH:mm:ss)
 const toDatetimeLocal = (expireAt: string): string => {
   if (!expireAt) return ''
@@ -135,6 +139,105 @@ const fromDatetimeLocal = (datetimeLocal: string): string => {
     return `${year}/${month}/${day} ${hour}:${minute}:${second}`
   }
   return datetimeLocal // 如果不匹配，返回原值让后端处理
+}
+
+const isoToDatetimeLocal = (isoString: string): string => {
+  const raw = String(isoString || '').trim()
+  if (!raw) return ''
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return ''
+
+  try {
+    const parts = new Intl.DateTimeFormat('zh-CN', {
+      timeZone: appConfigStore.timezone || 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).formatToParts(date)
+    const get = (type: string) => parts.find(p => p.type === type)?.value || ''
+    const year = get('year')
+    const month = get('month')
+    const day = get('day')
+    const hour = get('hour')
+    const minute = get('minute')
+    const second = get('second') || '00'
+    if (year && month && day && hour && minute) {
+      return `${year}-${month}-${day}T${hour}:${minute}:${second}`
+    }
+  } catch {
+    // ignore and fallback to local time
+  }
+
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
+const applyCheckedAccountSelection = (accountId: string) => {
+  const normalized = String(accountId || '').trim()
+  if (!normalized) return
+
+  const matched = checkedChatgptAccounts.value.find(acc => acc.accountId === normalized)
+  if (!matched) return
+
+  if (matched.expiresAt) {
+    const localValue = isoToDatetimeLocal(matched.expiresAt)
+    if (localValue) {
+      formData.value.expireAt = localValue
+    }
+  }
+}
+
+const openChatgptIdDropdown = async () => {
+  await nextTick()
+  const el = document.getElementById('chatgpt-account-id-input') as HTMLInputElement | null
+  el?.focus()
+  try {
+    // Best-effort: trigger the browser's datalist dropdown.
+    el?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }))
+  } catch {
+    // ignore
+  }
+}
+
+const handleCheckAccessToken = async () => {
+  const token = String(formData.value.token || '').trim()
+  if (!token) {
+    showErrorToast('请先填写 Access Token')
+    return
+  }
+
+  try {
+    checkingAccessToken.value = true
+    checkAccessTokenError.value = ''
+
+    const result = await gptAccountService.checkAccessToken(token)
+    checkedChatgptAccounts.value = Array.isArray(result?.accounts) ? result.accounts : []
+
+    if (!checkedChatgptAccounts.value.length) {
+      showErrorToast('校验成功，但未返回可用账号（可能没有 Team 账号权限）')
+      return
+    }
+
+    showSuccessToast(`校验成功：获取到 ${checkedChatgptAccounts.value.length} 个账号`)
+
+    // If user hasn't filled chatgptAccountId yet and there is only 1 option, autofill it.
+    if (!String(formData.value.chatgptAccountId || '').trim() && checkedChatgptAccounts.value.length === 1) {
+      formData.value.chatgptAccountId = checkedChatgptAccounts.value[0]?.accountId || ''
+    }
+
+    applyCheckedAccountSelection(formData.value.chatgptAccountId)
+    await openChatgptIdDropdown()
+  } catch (err: any) {
+    const message = err?.response?.data?.error || '校验失败'
+    checkAccessTokenError.value = message
+    showErrorToast(message)
+  } finally {
+    checkingAccessToken.value = false
+  }
 }
 
 // 切换页码
@@ -209,6 +312,13 @@ watch(searchQuery, () => {
   }, 300)
 })
 
+watch(
+  () => formData.value.chatgptAccountId,
+  (nextValue) => {
+    applyCheckedAccountSelection(String(nextValue || ''))
+  }
+)
+
 const openEditDialog = (account: GptAccount) => {
   editingAccount.value = account
   formData.value = {
@@ -229,6 +339,9 @@ const closeDialog = () => {
   showDialog.value = false
   editingAccount.value = null
   formData.value = { email: '', token: '', refreshToken: '', userCount: 0, isDemoted: false, isBanned: false, chatgptAccountId: '', oaiDeviceId: '', expireAt: '' }
+  checkedChatgptAccounts.value = []
+  checkAccessTokenError.value = ''
+  checkingAccessToken.value = false
 }
 
 const handleSubmit = async () => {
@@ -903,14 +1016,34 @@ const handleInviteSubmit = async () => {
                 />
               </div>
 
-   <div class="space-y-2">
+              <div class="space-y-2">
                 <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Access Token</Label>
-                <Input
-                  v-model="formData.token"
-                  required
-                  placeholder="sk-proj-..."
-                  class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-                />
+                <div class="flex items-center gap-2">
+                  <Input
+                    v-model="formData.token"
+                    required
+                    placeholder="sk-proj-..."
+                    class="h-11 flex-1 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    class="h-11 rounded-xl border-gray-200"
+                    :disabled="checkingAccessToken || !formData.token?.trim()"
+                    @click="handleCheckAccessToken"
+                  >
+                    <template v-if="checkingAccessToken">
+                      <span class="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full mr-2"></span>
+                      校验中
+                    </template>
+                    <template v-else>
+                      校验
+                    </template>
+                  </Button>
+                </div>
+                <p v-if="checkAccessTokenError" class="text-[12px] text-red-600">{{ checkAccessTokenError }}</p>
+                <p v-else-if="checkedChatgptAccounts.length" class="text-[12px] text-gray-400">已获取 {{ checkedChatgptAccounts.length }} 个账号，可在 ChatGPT ID 下拉选择</p>
               </div>
 
               <div class="space-y-2">
@@ -925,12 +1058,25 @@ const handleInviteSubmit = async () => {
 		              <div class="grid grid-cols-2 gap-4">
 		                 <div class="space-y-2">
 		                    <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">ChatGPT ID</Label>
-		                    <Input
-		                      v-model="formData.chatgptAccountId"
-		                      required
-		                      placeholder="必填"
-		                      class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-		                    />
+                        <div class="flex items-center gap-2">
+                          <Input
+                            id="chatgpt-account-id-input"
+                            v-model="formData.chatgptAccountId"
+                            required
+                            placeholder="必填"
+                            :list="checkedChatgptAccounts.length ? 'chatgpt-account-id-options' : undefined"
+                            class="h-11 flex-1 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
+                          />
+                        </div>
+                        <datalist v-if="checkedChatgptAccounts.length" id="chatgpt-account-id-options">
+                          <option
+                            v-for="acc in checkedChatgptAccounts"
+                            :key="acc.accountId"
+                            :value="acc.accountId"
+                          >
+                            {{ acc.name }}{{ acc.expiresAt ? ` (到期 ${acc.expiresAt})` : '' }}
+                          </option>
+                        </datalist>
 		                 </div>
 		                 <div class="space-y-2">
 		                    <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">设备 ID</Label>

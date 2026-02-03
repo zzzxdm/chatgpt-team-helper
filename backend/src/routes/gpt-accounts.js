@@ -4,7 +4,7 @@ import { getDatabase, saveDatabase } from '../database/init.js'
 import { authenticateToken } from '../middleware/auth.js'
 import { apiKeyAuth } from '../middleware/api-key-auth.js'
 import { requireMenu } from '../middleware/rbac.js'
-import { syncAccountUserCount, syncAccountInviteCount, AccountSyncError, deleteAccountUser, inviteAccountUser, deleteAccountInvite } from '../services/account-sync.js'
+import { syncAccountUserCount, syncAccountInviteCount, fetchOpenAiAccountInfo, AccountSyncError, deleteAccountUser, inviteAccountUser, deleteAccountInvite } from '../services/account-sync.js'
 
 const router = express.Router()
 const OPENAI_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann'
@@ -142,6 +142,28 @@ router.post('/ban', apiKeyAuth, async (req, res) => {
 })
 
 router.use(authenticateToken, requireMenu('accounts'))
+
+// 校验 access token，并返回可用的 Team 账号列表（用于新建账号时选择 chatgptAccountId）
+router.post('/check-token', async (req, res) => {
+  try {
+    const { token, proxy } = req.body || {}
+    const normalizedToken = String(token ?? '').trim()
+    if (!normalizedToken) {
+      return res.status(400).json({ error: 'token is required' })
+    }
+
+    const accounts = await fetchOpenAiAccountInfo(normalizedToken, proxy ?? null)
+    return res.json({ accounts })
+  } catch (error) {
+    console.error('Check GPT token error:', error)
+
+    if (error instanceof AccountSyncError || error?.status) {
+      return res.status(error.status || 500).json({ error: error.message })
+    }
+
+    return res.status(500).json({ error: '内部服务器错误' })
+  }
+})
 
 // 获取账号列表（支持分页、搜索、筛选）
 router.get('/', async (req, res) => {
