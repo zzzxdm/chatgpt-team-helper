@@ -66,14 +66,33 @@ const parseCorsOrigins = () => {
 }
 
 const corsOrigins = parseCorsOrigins()
+// 添加请求日志中间件，放在 CORS 之前
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
+  // console.log('[Headers]', {
+  //   origin: req.headers.origin,
+  //   'access-control-request-method': req.headers['access-control-request-method'],
+  //   'access-control-request-headers': req.headers['access-control-request-headers']
+  // })
+  next()
+})
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true)
-      return callback(null, corsOrigins.has(origin))
+      // console.log('[CORS] Request Origin:', origin)
+      // console.log('[CORS] Allowed origins:', Array.from(corsOrigins))
+      // console.log('[CORS] Has match:', corsOrigins.has(origin))
+      if (!origin) {
+        console.log('[CORS] No origin header, allowing request')
+        return callback(null, true)
+      }
+      const allowed = corsOrigins.has(origin)
+      // console.log('[CORS] Decision:', allowed ? 'ALLOW' : 'DENY')
+      return callback(null, allowed)
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Linuxdo-Token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Linuxdo-Token', 'Cache-Control', 'Pragma'],
     credentials: false,
     maxAge: 86400
   })

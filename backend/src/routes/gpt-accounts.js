@@ -346,9 +346,9 @@ router.post('/', async (req, res) => {
       return code
     }
 
-    // 自动生成5个兑换码并绑定到该账号
+    // 自动生成4个兑换码并绑定到该账号
     const generatedCodes = []
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 4; i++) {
       let code = generateRedemptionCode()
       let attempts = 0
       let success = false
