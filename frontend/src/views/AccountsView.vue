@@ -2203,6 +2203,7 @@ const handleInviteSubmit = async () => {
                           <tr>
                              <th class="px-4 py-3 text-left font-medium">用户</th>
                              <th class="px-4 py-3 text-left font-medium">角色</th>
+                             <th class="px-4 py-3 text-left font-medium">加入时间</th>
                              <th class="px-4 py-3 text-right font-medium">操作</th>
                           </tr>
                        </thead>
@@ -2217,6 +2218,9 @@ const handleInviteSubmit = async () => {
                                    {{ user.role }}
                                 </span>
                              </td>
+                             <td class="px-4 py-3 text-gray-500 text-xs">
+                                {{ user.created_time ? formatShanghaiDate(user.created_time, dateFormatOptions) : '-' }}
+                             </td>
                              <td class="px-4 py-3 text-right">
                                 <button 
                                    v-if="!['account-owner', 'account-admin'].includes((user.role || '').toLowerCase())"
@@ -2229,7 +2233,7 @@ const handleInviteSubmit = async () => {
                              </td>
                           </tr>
                           <tr v-if="!syncResult.users?.items?.length">
-                             <td colspan="3" class="px-4 py-8 text-center text-gray-400">暂无成员数据</td>
+                             <td colspan="4" class="px-4 py-8 text-center text-gray-400">暂无成员数据</td>
                           </tr>
                        </tbody>
                     </table>
