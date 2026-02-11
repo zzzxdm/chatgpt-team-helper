@@ -945,6 +945,7 @@ const handleInviteSubmit = async () => {
                 <th class="px-6 py-5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">渠道</th>
                 <th class="px-6 py-5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">所属账号</th>
                 <th class="px-6 py-5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">兑换用户</th>
+                <th class="px-6 py-5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">兑换时间</th>
                 <th class="px-6 py-5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">创建时间</th>
                 <th class="px-6 py-5 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">操作</th>
               </tr>
@@ -1056,9 +1057,10 @@ const handleInviteSubmit = async () => {
                       </span>
                    </div>
                 </td>
-                <td class="px-6 py-5 text-sm text-gray-500">{{ formatShanghaiDate(code.createdAt, dateFormatOptions).split(' ')[0] }}</td>
-	                <td class="px-6 py-5 text-right">
-	                  <div class="flex items-center justify-end gap-1">
+                <td class="px-6 py-5 text-sm text-gray-500">{{ code.redeemedAt ? formatShanghaiDate(code.redeemedAt, dateFormatOptions) : '-' }}</td>
+                <td class="px-6 py-5 text-sm text-gray-500">{{ formatShanghaiDate(code.createdAt, dateFormatOptions) }}</td>
+	              <td class="px-6 py-5 text-right">
+	                <div class="flex items-center justify-end gap-1">
 	                    <!-- Reinvite -->
 	                    <Button
 	                      v-if="code.isRedeemed"
@@ -1365,6 +1367,7 @@ const handleInviteSubmit = async () => {
                     <tr>
                       <th class="px-4 py-3 text-left font-medium">成员</th>
                       <th class="px-4 py-3 text-left font-medium">角色</th>
+                      <th class="px-4 py-3 text-left font-medium">加入时间</th>
                       <th class="px-4 py-3 text-right font-medium">操作</th>
                     </tr>
                   </thead>
@@ -1379,6 +1382,9 @@ const handleInviteSubmit = async () => {
                           {{ user.role }}
                         </span>
                       </td>
+                      <td class="px-4 py-3 text-gray-500 text-xs">
+                        {{ user.created_time ? formatShanghaiDate(user.created_time, dateFormatOptions) : '-' }}
+                      </td>
                       <td class="px-4 py-3 text-right">
                         <button
                           v-if="!['account-owner', 'account-admin'].includes((user.role || '').toLowerCase())"
@@ -1391,7 +1397,7 @@ const handleInviteSubmit = async () => {
                       </td>
                     </tr>
                     <tr v-if="!syncResult.users?.items?.length">
-                      <td colspan="3" class="px-4 py-8 text-center text-gray-400">暂无成员数据</td>
+                      <td colspan="4" class="px-4 py-8 text-center text-gray-400">暂无成员数据</td>
                     </tr>
                   </tbody>
                 </table>
