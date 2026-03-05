@@ -34,6 +34,8 @@ COPY backend/ ./backend/
 # 多阶段构建 - 阶段3：最终运行镜像
 FROM node:20-alpine
 
+ENV TZ=Asia/Shanghai
+
 # 安装 nginx、supervisor 以及小红书订单同步所需的运行依赖（Chromium、Chromedriver、Python等）
 RUN apk add --no-cache \
     nginx \
@@ -45,7 +47,9 @@ RUN apk add --no-cache \
     bash \
     udev \
     curl \
-    tzdata
+    tzdata \
+ && ln -snf "/usr/share/zoneinfo/${TZ}" /etc/localtime \
+ && echo "${TZ}" > /etc/timezone
 
 # 创建工作目录
 WORKDIR /app

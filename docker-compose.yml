@@ -13,7 +13,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      TZ: ${TZ:-Asia/Shanghai}
+      TZ: ${APP_TZ:-Asia/Shanghai}
       NODE_ENV: ${NODE_ENV:-production}
       DATABASE_PATH: ${DATABASE_PATH:-/app/backend/db/database.sqlite}
     restart: unless-stopped

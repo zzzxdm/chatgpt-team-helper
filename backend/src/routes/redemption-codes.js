@@ -908,9 +908,9 @@ router.post('/batch', authenticateToken, requireMenu('redemption_codes'), async 
     const currentUserCount = accountRow[2] || 0
 
     // 如果账号已满员（5人），不能创建兑换码
-    if (currentUserCount >= 5) {
+    if (currentUserCount >= 8) {
       return res.status(400).json({
-        error: '该账号已满员（5人），无法创建兑换码',
+        error: '该账号已满员（8人），无法创建兑换码',
         currentUserCount: currentUserCount
       })
     }
