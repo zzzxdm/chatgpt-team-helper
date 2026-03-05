@@ -925,7 +925,7 @@ router.post('/batch', authenticateToken, requireMenu('redemption_codes'), async 
 
     // 计算实际可以生成的数量
     // 可创建数量 = 总容量(5) - 当前人数 - 未使用的兑换码数
-    const totalCapacity = 5
+    const totalCapacity = 8
     const availableSlots = totalCapacity - currentUserCount - unusedCodesCount
 
     if (availableSlots <= 0) {
