@@ -54,3 +54,4 @@ chagpt-main/
 .ace-tool/
 logs
 package-lock.json
+t-docker-compose.yml

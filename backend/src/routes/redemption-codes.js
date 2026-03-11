@@ -541,10 +541,9 @@ export async function redeemCodeInternal({
       throw new RedemptionError(503, '该兑换码绑定的账号已达到人数上限，请联系管理员')
     }
 
-    const isOpen = Number(boundRow[8] || 0) === 1
     const isBanned = Number(boundRow[9] || 0) === 1
-    if (isBanned || (!isOpen && !allowNonOpenAccount)) {
-      throw new RedemptionError(503, '该兑换码绑定账号不可用或已过期，请联系管理员')
+    if (isBanned) {
+      throw new RedemptionError(503, '该兑换码绑定账号不可用，请联系管理员')
     }
 
     const candidate = [boundRow[0], boundRow[1], boundRow[2], boundRow[3], boundRow[4], boundRow[5], boundRow[6]]
